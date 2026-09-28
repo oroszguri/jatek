@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<style>
+    body { background: #050505; color: #0f0; font-family: 'Courier New', monospace; margin: 0; display: flex; height: 100vh; overflow: hidden; user-select: none; }
+    #canvas-container { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; background: #000; border-right: 2px solid #333; }
+    canvas { background: #000; box-shadow: inset 0 0 20px rgba(0,255,0,0.05); }
+    #ui { width: 350px; background: #111; padding: 20px; box-sizing: border-box; overflow-y: auto; color: #0a0; }
+    h1 { font-size: 1.2em; color: #0f0; border-bottom: 1px solid #0f0; padding-bottom: 5px; text-transform: uppercase; margin-top: 0; }
+    .train { border: 1px solid #333; padding: 10px; margin-bottom: 10px; background: #050505; }
+    .train.freight { border-color: #a50; color: #fd0; }
+    .train.passenger { border-color: #05a; color: #0df; }
+    .btn { background: #222; border: 1px solid #0f0; color: #0f0; padding: 5px 10px; cursor: pointer; width: 100%; margin-top: 5px; font-family: inherit; font-weight: bold;}
+    .btn:hover { background: #0f0; color: #000; }
+    #time { font-size: 2em; text-align: center; margin-bottom: 20px; border: 1px solid #0f0; padding: 10px; background: #050505; }
+</style>
+</head>
+<body>
+<div id="canvas-container"><canvas id="c" width="1100" height="600"></canvas></div>
+<div id="ui">
+    <div id="time">08:00</div>
+    <h1>Irányítópult</h1>
+    <div id="list"></div>
+</div>
+<script>
+    const c = document.getElementById('c'), ctx = c.getContext('2d'), list = document.getElementById('list'), timeEl = document.getElementById('time');
+    let last = performance.now(), gameTime = new Date(); gameTime.setHours(8,0,0,0);
+    const P = [200, 300, 400], MY = 300, SL = 250, SR = 850;
+    let sw = { L: {x: SL, y: MY, t: 1, c: 1, p: 0}, R: {x: SR, y: MY, t: 1, c: 1, p: 0} };
+    let trs = [], id = 1;
+
+    function mkP(pts) {
+        let p = [], d = 0;
+        for(let i=0; i<pts.length; i++) {
+            if(i>0) {
+                let dx = pts[i].x-pts[i-1].x, dy = pts[i].y-pts[i-1].y;
+                let len = Math.sqrt(dx*dx+dy*dy);
+                d += len;
+                p.push({x: pts[i].x, y: pts[i].y, d: d, a: Math.atan2(dy, dx)});
+            } else p.push({x: pts[i].x, y: pts[i].y, d: 0, a: 0});
+        }
+        return p;
+    }
+
+    const L_ent = mkP([{x:-50, y:MY}, {x:SL, y:MY}]);
+    const R_ent = mkP([{x:1150, y:MY}, {x:SR, y:MY}]);
+    const pths = [[],[],[]];
+    for(let i=0; i<3; i++) {
+        let dx = (P[i] === MY) ? 0 : 100;
+        pths[i] = mkP([
+            {x: SL, y: MY}, 
+            {x: SL+dx, y: P[i]}, 
+            {x: SR-dx, y: P[i]}, 
+            {x: SR, y: MY}
+        ]);
+    }
+
+    function spwn() {
+        let typ = Math.random()>0.5 ? 'passenger' : 'freight', or = Math.random()>0.5 ? 'L' : 'R';
+        trs.push({ id: id++, typ, or, s: 'ent', plt: null, d: 0, v: 0, mv: 80, wt: (Math.floor(Math.random()*10)+5)*60, wtr: 0, ld: typ==='passenger', clr: typ==='passenger'?'#0df':'#fd0' });
+        rend();
+    }
+
+    c.addEventListener('click', e => {
+        let r = c.getBoundingClientRect(), x = e.clientX-r.left, y = e.clientY-r.top;
+        [sw.L, sw.R].forEach(s => {
+            if(Math.hypot(x-s.x, y-s.y) < 30 && s.p === 0) { s.t = (s.t+1)%3; s.p = 1; }
+        });
+    });
+
+    function getPos(t, off) {
+        let p = [];
+        if(t.or==='L') {
+            p = [{x:-50, y:MY}, {x:SL, y:MY}];
+            if(t.plt!==null) {
+                let m = pths[t.plt];
+                p.push({x:m[1].x, y:m[1].y}, {x:m[2].x, y:m[2].y}, {x:m[3].x, y:m[3].y}, {x:1150, y:MY});
+            }
+        } else {
+            p = [{x:1150, y:MY}, {x:SR, y:MY}];
+            if(t.plt!==null) {
+                let m = pths[t.plt];
+                p.push({x:m[2].x, y:m[2].y}, {x:m[1].x, y:m[1].y}, {x:m[0].x, y:m[0].y}, {x:-50, y:MY});
+            }
+        }
+        let fl = mkP(p), dist = Math.max(0, t.d - off), pt = fl[0], idx=0;
+        for(let i=0; i<fl.length; i++) { if(fl[i].d >= dist) { pt = fl[i]; break; } idx=i; }
+        return {x: pt.x, y: pt.y, a: pt.a, idx, md: fl[fl.length-1].d};
+    }
+
+    function ldF(id) { let t = trs.find(x=>x.id===id); if(t && t.s==='wt') { t.ld = true; rend(); } }
+
+    function upd(dt) {
+        let gs = dt*4; gameTime.setSeconds(gameTime.getSeconds()+gs);
+        timeEl.innerText = gameTime.toLocaleTimeString('hu-HU', {hour:'2-digit', minute:'2-digit'});
+        if(Math.random()<dt*0.03 && trs.length<5) spwn();
+
+        [sw.L, sw.R].forEach(s => {
+            if(s.p>0) {
+                s.p -= dt/1.5;
+                if(s.p<=0) { s.p = 0; s.c = s.t; }
+            }
+        });
+
+        let ur = false;
+        for(let i=trs.length-1; i>=0; i--) {
+            let t = trs[i], pos = getPos(t, 0), go = true;
+            if(t.s === 'ent' && t.d > L_ent[1].d - 50) {
+                let s = t.or==='L'?sw.L:sw.R;
+                if(s.p>0) go = false; else t.plt = s.c;
+            }
+            if(t.plt !== null) {
+                let m = pths[t.plt], pd = t.or==='L' ? m[2].d - m[0].d : m[2].d; 
+                let inP = t.d - L_ent[1].d;
+                if(inP > pd/2 && t.s !== 'wt' && t.s !== 'ex') { t.s = 'wt'; go = false; ur = true; }
+                if(t.s === 'wt') { go = false; if(t.ld) { t.wtr += gs; if(t.wtr >= t.wt) { t.s = 'ex'; ur = true; } } }
+                if(t.s === 'ex') {
+                    let s = t.or==='L'?sw.R:sw.L;
+                    if(m[3].d - inP < 50) { if(s.p>0 || s.c!==t.plt) go = false; }
+                }
+            }
+            for(let j=0; j<trs.length; j++) {
+                if(i===j) continue;
+                let ot = trs[j];
+                if((t.s==='ent'&&ot.s==='ent'&&t.or===ot.or) || (t.plt!==null&&t.plt===ot.plt) || (t.s==='ex'&&ot.s==='ex'&&t.or===ot.or)) {
+                    if(ot.d > t.d && ot.d - t.d < 150) go = false;
+                }
+            }
+            t.v = go ? Math.min(t.v+100*dt, t.mv) : Math.max(t.v-200*dt, 0);
+            t.d += t.v*dt;
+            if(t.d > pos.md + 200) { trs.splice(i,1); ur = true; }
+        }
+        if(ur) rend();
+    }
+
+    function drw() {
+        ctx.clearRect(0,0,c.width,c.height);
+        ctx.lineWidth = 4; ctx.lineCap = 'square'; ctx.lineJoin = 'miter';
+
+        const dp = (pts, col) => { ctx.strokeStyle=col; ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x, pts[i].y); ctx.stroke(); };
+
+        dp(L_ent, '#333'); dp(R_ent, '#333');
+        for(let i=0; i<3; i++) {
+            let pts = pths[i];
+            dp([pts[1], pts[2]], '#333');
+            dp([pts[0], pts[1]], sw.L.c===i ? '#0f0' : '#333');
+            dp([pts[2], pts[3]], sw.R.c===i ? '#0f0' : '#333');
+            
+            ctx.fillStyle = '#0f0'; ctx.font = '14px monospace'; ctx.textAlign='center';
+            ctx.fillText('V'+(i+1), pts[1].x+40, pts[1].y - 15);
+        }
+
+        const ds = (s) => {
+            ctx.fillStyle = s.p>0 ? '#f00' : '#0f0';
+            ctx.fillRect(s.x-12, s.y-12, 24, 24);
+            ctx.fillStyle = '#000'; ctx.font = '14px monospace'; ctx.textAlign='center';
+            ctx.fillText(s.c+1, s.x, s.y+4);
+        };
+        ds(sw.L); ds(sw.R);
+
+        ctx.fillStyle = '#333'; ctx.font = 'bold 20px monospace';
+        ctx.textAlign = 'left'; ctx.fillText('RÉPCE', 20, 280); 
+        ctx.textAlign = 'right'; ctx.fillText('NAPRAFORGÓ', 1080, 280);
+
+        for(let t of trs) {
+            for(let k=0; k<(t.typ==='passenger'?4:6); k++) {
+                let pos = getPos(t, k*30);
+                if(pos.x<0 || pos.x>c.width) continue;
+                ctx.save(); ctx.translate(pos.x, pos.y); ctx.rotate(pos.a);
+                ctx.fillStyle = t.clr; ctx.fillRect(-12, -8, 24, 16);
+                ctx.fillStyle = '#000'; ctx.fillRect(12, -2, 4, 4);
+                ctx.restore();
+            }
+        }
+    }
+
+    function rend() {
+        list.innerHTML = trs.length ? '' : '<div class="train">NINCS FORGALOM</div>';
+        trs.forEach(t => {
+            let st = t.s==='wt' ? (t.ld ? 'VÁRAKOZIK' : 'RAKODÁSRA VÁR') : (t.s==='ex'?'TÁVOZIK':'ÉRKEZIK');
+            let d = document.createElement('div'); d.className = `train ${t.typ}`;
+            d.innerHTML = `VONAT #${t.id} - ${t.typ==='passenger'?'SZEMÉLY':'TEHER'}<br>IRÁNY: ${t.or==='L'?'R->N':'N->R'}<br>STÁTUSZ: ${st}`;
+            if(t.typ==='freight' && t.s==='wt' && !t.ld) {
+                let b = document.createElement('button'); b.className='btn'; b.innerText='RAKODÁS'; b.onclick=()=>ldF(t.id); d.appendChild(b);
+            }
+            list.appendChild(d);
+        });
+    }
+
+    function lp() {
+        let nw = performance.now(), dt = Math.min((nw-last)/1000, 0.1); last = nw;
+        upd(dt); drw(); requestAnimationFrame(lp);
+    }
+    spwn(); lp(); setInterval(rend, 1000);
+</script>
+</body>
+</html>
