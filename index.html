@@ -1,522 +1,810 @@
 <!DOCTYPE html>
 <html lang="hu">
 <head>
-    <meta charset="UTF-8">
-    <title>Forgalmista Jatek</title>
-    <style>
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            background: #1e1e24; 
-            color: #f5f6fa; 
-            margin: 0; 
-            display: flex; 
-            height: 100vh; 
-            overflow: hidden; 
-        }
-        #game-container { 
-            position: relative; 
-            flex: 1; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            background: #2b2b36; 
-        }
-        canvas { 
-            background: #34495e; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.6); 
-            border-radius: 12px; 
-            border: 2px solid #555;
-        }
-        #ui-panel { 
-            width: 380px; 
-            background: #2c3e50; 
-            padding: 25px; 
-            box-sizing: border-box; 
-            overflow-y: auto; 
-            border-left: 4px solid #1abc9c; 
-            display: flex;
-            flex-direction: column;
-        }
-        h1, h2 { margin-top: 0; color: #1abc9c; }
-        .train-card { 
-            background: #34495e; 
-            padding: 15px; 
-            margin-bottom: 12px; 
-            border-radius: 8px; 
-            border-left: 6px solid #7f8c8d; 
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-        }
-        .train-card.passenger { border-color: #3498db; }
-        .train-card.freight { border-color: #e67e22; }
-        .btn { 
-            background: #e67e22; 
-            color: white; 
-            border: none; 
-            padding: 10px 15px; 
-            cursor: pointer; 
-            border-radius: 6px; 
-            margin-top: 10px; 
-            font-weight: bold;
-            width: 100%;
-            transition: background 0.2s;
-        }
-        .btn:hover { background: #d35400; }
-        #clock { 
-            font-size: 3em; 
-            text-align: center; 
-            margin-bottom: 25px; 
-            font-weight: bold; 
-            font-family: 'Courier New', Courier, monospace; 
-            color: #f1c40f;
-            background: #222;
-            padding: 10px;
-            border-radius: 8px;
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
-        }
-        .controls-info {
-            background: rgba(0,0,0,0.2);
-            padding: 15px;
-            border-radius: 8px;
-            font-size: 0.9em;
-            margin-bottom: 20px;
-            color: #bdc3c7;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ŰrFigyelő — Friss űrkutatási hírek</title>
+
+  <style>
+    :root {
+      --bg: #050814;
+      --bg2: #0b1022;
+      --card: rgba(17, 24, 48, .82);
+      --card2: rgba(24, 33, 63, .9);
+      --text: #f4f7ff;
+      --muted: #9da8c7;
+      --accent: #72a7ff;
+      --accent2: #a477ff;
+      --cyan: #4de4ff;
+      --border: rgba(255,255,255,.09);
+      --green: #54e39b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      min-height: 100vh;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont,
+                   "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 15% 10%, rgba(88, 110, 255, .18), transparent 30%),
+        radial-gradient(circle at 85% 20%, rgba(166, 86, 255, .13), transparent 28%),
+        linear-gradient(180deg, #040611 0%, #080d1e 50%, #040611 100%);
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: .45;
+      background-image:
+        radial-gradient(circle, white 1px, transparent 1px);
+      background-size: 130px 130px;
+      mask-image: linear-gradient(to bottom, black, transparent 80%);
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .container {
+      width: min(1200px, calc(100% - 36px));
+      margin: auto;
+    }
+
+    /* HEADER */
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      backdrop-filter: blur(18px);
+      background: rgba(4, 6, 17, .75);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav {
+      min-height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -.5px;
+    }
+
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      border-radius: 13px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      box-shadow: 0 0 30px rgba(114,167,255,.3);
+    }
+
+    nav {
+      display: flex;
+      gap: 7px;
+    }
+
+    nav a {
+      color: var(--muted);
+      padding: 9px 13px;
+      border-radius: 10px;
+      transition: .2s;
+    }
+
+    nav a:hover,
+    nav a.active {
+      color: white;
+      background: rgba(255,255,255,.07);
+    }
+
+    .live {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #c9d2ea;
+      font-size: 13px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      background: var(--green);
+      border-radius: 50%;
+      box-shadow: 0 0 12px var(--green);
+    }
+
+    /* HERO */
+
+    .hero {
+      padding: 80px 0 55px;
+      text-align: center;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      border: 1px solid rgba(114,167,255,.25);
+      border-radius: 999px;
+      color: #bcd1ff;
+      background: rgba(114,167,255,.07);
+      font-size: 13px;
+      margin-bottom: 22px;
+    }
+
+    h1 {
+      font-size: clamp(42px, 7vw, 78px);
+      line-height: .95;
+      letter-spacing: -4px;
+      margin-bottom: 24px;
+      background: linear-gradient(110deg, white 15%, #9ec4ff 50%, #bd9cff);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .hero p {
+      max-width: 680px;
+      margin: auto;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.7;
+    }
+
+    /* SECTION */
+
+    section {
+      padding: 38px 0;
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 20px;
+      margin-bottom: 22px;
+    }
+
+    .section-title {
+      font-size: 28px;
+      letter-spacing: -.8px;
+    }
+
+    .section-subtitle {
+      color: var(--muted);
+      margin-top: 5px;
+      font-size: 14px;
+    }
+
+    .source {
+      color: #a8bcdf;
+      font-size: 13px;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: rgba(255,255,255,.03);
+    }
+
+    /* NEWS */
+
+    .news-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+
+    .news-card {
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: var(--card);
+      transition: transform .25s, border-color .25s, box-shadow .25s;
+    }
+
+    .news-card:hover {
+      transform: translateY(-5px);
+      border-color: rgba(114,167,255,.35);
+      box-shadow: 0 20px 50px rgba(0,0,0,.25);
+    }
+
+    .news-image {
+      height: 190px;
+      display: grid;
+      place-items: center;
+      font-size: 60px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .news-image::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(transparent 40%, rgba(5,8,20,.8));
+    }
+
+    .img1 {
+      background:
+        radial-gradient(circle at 65% 35%, #fff 0 2%, transparent 3%),
+        radial-gradient(circle at 25% 20%, #8aa7ff 0 1%, transparent 2%),
+        linear-gradient(140deg, #1c3974, #090b20 65%);
+    }
+
+    .img2 {
+      background:
+        radial-gradient(circle at 70% 40%, #ffdd9c 0 5%, transparent 6%),
+        linear-gradient(140deg, #52255f, #11112d 65%);
+    }
+
+    .img3 {
+      background:
+        radial-gradient(circle at 50% 50%, #dceaff 0 4%, transparent 5%),
+        radial-gradient(circle at 50% 50%, #5789ff 0 18%, transparent 19%),
+        linear-gradient(140deg, #0c5270, #080c20);
+    }
+
+    .news-body {
+      padding: 20px;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 5px 8px;
+      font-size: 11px;
+      border-radius: 7px;
+      color: #b9ceff;
+      background: rgba(114,167,255,.1);
+      margin-bottom: 11px;
+    }
+
+    .news-body h3 {
+      font-size: 19px;
+      line-height: 1.3;
+      margin-bottom: 10px;
+    }
+
+    .news-body p {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .date {
+      display: block;
+      margin-top: 15px;
+      color: #6f7b9c;
+      font-size: 12px;
+    }
+
+    /* VIDEOS */
+
+    .video-layout {
+      display: grid;
+      grid-template-columns: 1.65fr 1fr;
+      gap: 20px;
+    }
+
+    .video-main,
+    .video-side {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      overflow: hidden;
+      background: var(--card);
+    }
+
+    .video-frame {
+      aspect-ratio: 16 / 9;
+      background: #000;
+    }
+
+    .video-frame iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+
+    .video-info {
+      padding: 19px;
+    }
+
+    .video-info h3 {
+      font-size: 20px;
+      margin-bottom: 8px;
+    }
+
+    .video-info p {
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    .video-list {
+      display: grid;
+      gap: 12px;
+      padding: 12px;
+    }
+
+    .video-item {
+      display: grid;
+      grid-template-columns: 125px 1fr;
+      gap: 13px;
+      padding: 10px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: .2s;
+    }
+
+    .video-item:hover,
+    .video-item.selected {
+      background: rgba(255,255,255,.06);
+    }
+
+    .thumbnail {
+      height: 75px;
+      border-radius: 9px;
+      display: grid;
+      place-items: center;
+      background:
+        linear-gradient(135deg, #172d66, #27134f);
+      font-size: 25px;
+    }
+
+    .video-item h4 {
+      font-size: 14px;
+      line-height: 1.35;
+      margin-bottom: 6px;
+    }
+
+    .video-item span {
+      color: #727d9a;
+      font-size: 11px;
+    }
+
+    /* DASHBOARD */
+
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+
+    .stat {
+      border: 1px solid var(--border);
+      background: rgba(17,24,48,.7);
+      border-radius: 15px;
+      padding: 20px;
+    }
+
+    .stat small {
+      color: var(--muted);
+    }
+
+    .stat strong {
+      display: block;
+      margin-top: 8px;
+      font-size: 24px;
+    }
+
+    /* FOOTER */
+
+    footer {
+      margin-top: 60px;
+      padding: 35px 0;
+      border-top: 1px solid var(--border);
+      color: #697490;
+      font-size: 13px;
+      text-align: center;
+    }
+
+    /* MOBILE */
+
+    @media (max-width: 900px) {
+      .news-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .video-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .dashboard {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 650px) {
+      .container {
+        width: min(100% - 24px, 1200px);
+      }
+
+      nav {
+        display: none;
+      }
+
+      .hero {
+        padding: 55px 0 35px;
+      }
+
+      h1 {
+        letter-spacing: -2px;
+      }
+
+      .news-grid,
+      .dashboard {
+        grid-template-columns: 1fr;
+      }
+
+      .section-head {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .video-item {
+        grid-template-columns: 110px 1fr;
+      }
+    }
+  </style>
 </head>
+
 <body>
-    <div id="game-container">
-        <canvas id="canvas" width="1100" height="600"></canvas>
+
+<header>
+  <div class="container nav">
+    <a class="logo" href="#">
+      <span class="logo-icon">🚀</span>
+      ŰrFigyelő
+    </a>
+
+    <nav>
+      <a href="#hirek" class="active">Hírek</a>
+      <a href="#videok">Videók</a>
+      <a href="#kuldetesek">Küldetések</a>
+    </nav>
+
+    <div class="live">
+      <span class="dot"></span>
+      Frissülő hírek
     </div>
-    <div id="ui-panel">
-        <div id="clock">08:00</div>
-        <div class="controls-info">
-            <strong>Irányítás:</strong><br>
-            Kattints a kör alakú váltókra a vágányok közötti átkapcsoláshoz. A váltás időbe telik.<br>
-            A tehervonatokat manuálisan kell rakodni a peronon.
+  </div>
+</header>
+
+
+<main>
+
+  <section class="hero">
+    <div class="container">
+      <div class="eyebrow">🌌 Űrkutatás • Tudomány • Küldetések</div>
+
+      <h1>A világűr<br>legfrissebb hírei</h1>
+
+      <p>
+        Rakéták, bolygók, űrtávcsövek és új küldetések egyetlen
+        letisztult felületen — hírek és videók megnyitása nélkül,
+        közvetlenül az oldalon.
+      </p>
+    </div>
+  </section>
+
+
+  <!-- HÍREK -->
+
+  <section id="hirek">
+    <div class="container">
+
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">Legfrissebb hírek</h2>
+          <p class="section-subtitle">
+            Válogatás NASA és ESA forrásokból
+          </p>
         </div>
-        <h2>Menetrend & Állapot</h2>
-        <div id="trains-list"></div>
+
+        <div class="source">● FRISSÍTETT: 2026. szeptember 28.</div>
+      </div>
+
+      <div class="news-grid">
+
+        <article class="news-card">
+          <div class="news-image img1">🚀</div>
+
+          <div class="news-body">
+            <span class="tag">NASA • STARLINER</span>
+
+            <h3>
+              A NASA és a Boeing új tájékoztatót tart a Starlinerről
+            </h3>
+
+            <p>
+              A NASA és a Boeing a Starliner fejlesztéséről és
+              a jövőbeli ISS-repülésekről ad friss tájékoztatást.
+            </p>
+
+            <span class="date">2026. szeptember 28.</span>
+          </div>
+        </article>
+
+
+        <article class="news-card">
+          <div class="news-image img2">🪐</div>
+
+          <div class="news-body">
+            <span class="tag">ESA • JUICE</span>
+
+            <h3>
+              A JUICE újabb Föld melletti gravitációs lendítést hajt végre
+            </h3>
+
+            <p>
+              Az ESA Jupiter-kutató szondája szeptember 28-án
+              újabb Föld-közeli elrepüléssel módosítja pályáját.
+            </p>
+
+            <span class="date">2026. szeptember 21.</span>
+          </div>
+        </article>
+
+
+        <article class="news-card">
+          <div class="news-image img3">🔭</div>
+
+          <div class="news-body">
+            <span class="tag">NASA • ROMAN</span>
+
+            <h3>
+              Elkészültek a Roman űrtávcső földi adatállomásai
+            </h3>
+
+            <p>
+              A Nancy Grace Roman Space Telescope nagy mennyiségű
+              tudományos adatának fogadására a támogató állomások készen állnak.
+            </p>
+
+            <span class="date">2026. szeptember 25.</span>
+          </div>
+        </article>
+
+      </div>
     </div>
+  </section>
 
-    <script>
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        const uiList = document.getElementById('trains-list');
-        const clockEl = document.getElementById('clock');
 
-        let lastTime = performance.now();
-        let gameTime = new Date();
-        gameTime.setHours(8, 0, 0, 0);
+  <!-- VIDEÓK -->
 
-        const PLATFORMS_Y = [180, 300, 420];
-        const MAIN_Y = 300;
-        const SWITCH_L_X = 250, SWITCH_R_X = 850;
-        const PLAT_L_X = 400, PLAT_R_X = 700;
+  <section id="videok">
+    <div class="container">
 
-        let switches = {
-            L: { x: SWITCH_L_X, y: MAIN_Y, current: 1, target: 1, switching: false, progress: 0 },
-            R: { x: SWITCH_R_X, y: MAIN_Y, current: 1, target: 1, switching: false, progress: 0 }
-        };
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">Űrkutatási videók</h2>
+          <p class="section-subtitle">
+            A videókat közvetlenül ezen az oldalon nézheted
+          </p>
+        </div>
+      </div>
 
-        let trains = [];
-        let nextTrainId = 1;
 
-        function generatePath(startX, startY, endX, endY, cpX, cpY) {
-            let path = [];
-            let steps = 250;
-            for(let i=0; i<=steps; i++) {
-                let t = i / steps;
-                let x, y;
-                if (cpX != null) {
-                    x = (1-t)*(1-t)*startX + 2*(1-t)*t*cpX + t*t*endX;
-                    y = (1-t)*(1-t)*startY + 2*(1-t)*t*cpY + t*t*endY;
-                } else {
-                    x = startX + (endX - startX)*t;
-                    y = startY + (endY - startY)*t;
-                }
-                if (path.length > 0) {
-                    let last = path[path.length-1];
-                    let dx = x - last.x, dy = y - last.y;
-                    let dist = Math.sqrt(dx*dx + dy*dy);
-                    path.push({x, y, dist: path[path.length-1].dist + dist, angle: Math.atan2(dy, dx)});
-                } else {
-                    path.push({x, y, dist: 0, angle: 0});
-                }
-            }
-            return path;
-        }
+      <div class="video-layout">
 
-        const paths = {
-            L_entry: generatePath(-50, MAIN_Y, SWITCH_L_X, MAIN_Y),
-            R_entry: generatePath(1150, MAIN_Y, SWITCH_R_X, MAIN_Y),
-            L_to_P: [],
-            P_to_R: []
-        };
+        <div class="video-main">
 
-        const platformPaths = [];
-        for(let i=0; i<3; i++) {
-            paths.L_to_P.push(generatePath(SWITCH_L_X, MAIN_Y, PLAT_L_X, PLATFORMS_Y[i], (SWITCH_L_X+PLAT_L_X)/2, MAIN_Y));
-            paths.P_to_R.push(generatePath(PLAT_R_X, PLATFORMS_Y[i], SWITCH_R_X, MAIN_Y, (PLAT_R_X+SWITCH_R_X)/2, PLATFORMS_Y[i]));
-            platformPaths.push(generatePath(PLAT_L_X, PLATFORMS_Y[i], PLAT_R_X, PLATFORMS_Y[i]));
-        }
+          <!--
+            IDE JÖN A BEÁGYAZOTT YOUTUBE VIDEÓ.
 
-        function spawnTrain() {
-            let type = Math.random() > 0.4 ? 'passenger' : 'freight';
-            let origin = Math.random() > 0.5 ? 'L' : 'R';
-            
-            let waitTimeMins = Math.floor(Math.random() * 16) + 5; 
-            if(Math.random() > 0.75) waitTimeMins = 20;
+            A saját videóidnál egyszerűen cseréld ki az ID-t:
+            https://www.youtube.com/watch?v=VIDEO_ID
 
-            trains.push({
-                id: nextTrainId++,
-                type: type,
-                origin: origin,
-                state: 'entering', 
-                platform: null,
-                dist: 0,
-                speed: 0,
-                maxSpeed: 60, 
-                waitTime: waitTimeMins * 60,
-                waitTimer: 0,
-                loaded: type === 'passenger',
-                cars: type === 'passenger' ? 5 : 8,
-                color: type === 'passenger' ? '#3498db' : '#e67e22'
-            });
-            renderUI();
-        }
+            ↓↓↓
+          -->
 
-        canvas.addEventListener('click', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
+          <div class="video-frame">
+            <iframe
+              id="mainVideo"
+              src="https://www.youtube.com/embed/21X5lGlDOfg"
+              title="NASA Live"
+              allow="accelerometer; autoplay; clipboard-write;
+                     encrypted-media; gyroscope; picture-in-picture;
+                     web-share"
+              allowfullscreen>
+            </iframe>
+          </div>
 
-            [switches.L, switches.R].forEach(sw => {
-                let dx = x - sw.x, dy = y - sw.y;
-                if(Math.sqrt(dx*dx + dy*dy) < 35 && !sw.switching) {
-                    sw.target = (sw.target + 1) % 3;
-                    if(sw.target !== sw.current) {
-                        sw.switching = true;
-                        sw.progress = 0;
-                    }
-                }
-            });
-        });
+          <div class="video-info">
+            <span class="tag">NASA LIVE</span>
 
-        function getTrainPos(train, offset) {
-            let pathList = [];
-            if(train.origin === 'L') {
-                pathList = [
-                    paths.L_entry,
-                    train.platform != null ? paths.L_to_P[train.platform] : paths.L_entry, 
-                    train.platform != null ? platformPaths[train.platform] : platformPaths[1],
-                    train.platform != null ? paths.P_to_R[train.platform] : paths.P_to_R[1],
-                    generatePath(SWITCH_R_X, MAIN_Y, 1150, MAIN_Y)
-                ];
-            } else {
-                pathList = [
-                    paths.R_entry, 
-                    train.platform != null ? [...paths.P_to_R[train.platform]].reverse() : paths.R_entry, 
-                    train.platform != null ? [...platformPaths[train.platform]].reverse() : platformPaths[1],
-                    train.platform != null ? [...paths.L_to_P[train.platform]].reverse() : paths.L_to_P[1],
-                    generatePath(SWITCH_L_X, MAIN_Y, -50, MAIN_Y)
-                ];
-            }
+            <h3 id="videoTitle">
+              NASA Live — élő űrkutatási közvetítés
+            </h3>
 
-            let d = train.dist - offset;
-            if(d < 0) d = 0;
+            <p id="videoDescription">
+              Élő és friss űrkutatási tartalmak egy helyen.
+              A lejátszó az oldal része, ezért nem kell külön
+              böngészőlapra átmenned.
+            </p>
+          </div>
 
-            let segmentOffsets = [0];
-            for(let i=0; i<pathList.length; i++){
-                segmentOffsets.push(segmentOffsets[i] + pathList[i][pathList[i].length-1].dist);
-            }
+        </div>
 
-            let currentSeg = 0;
-            while(currentSeg < pathList.length && d > segmentOffsets[currentSeg+1]) {
-                currentSeg++;
-            }
-            if(currentSeg >= pathList.length) currentSeg = pathList.length - 1;
 
-            let distInSeg = d - segmentOffsets[currentSeg];
-            let segPath = pathList[currentSeg];
-            
-            let pt = segPath[0];
-            for(let i=0; i<segPath.length; i++) {
-                if(segPath[i].dist >= distInSeg) {
-                    pt = segPath[i];
-                    break;
-                }
-            }
-            return {x: pt.x, y: pt.y, angle: pt.angle, segIndex: currentSeg, maxDist: segmentOffsets[segmentOffsets.length-1]};
-        }
+        <aside class="video-side">
 
-        function loadFreight(id) {
-            let t = trains.find(tr => tr.id === id);
-            if(t && t.type === 'freight' && t.state === 'waiting') {
-                t.loaded = true;
-                renderUI();
-            }
-        }
+          <div class="video-list">
 
-        function update(dt) {
-            let gameSecs = dt * 4; 
-            gameTime.setSeconds(gameTime.getSeconds() + gameSecs);
-            clockEl.textContent = gameTime.toLocaleTimeString('hu-HU', {hour: '2-digit', minute:'2-digit'});
+            <div
+              class="video-item selected"
+              onclick="changeVideo(
+                '21X5lGlDOfg',
+                'NASA Live — élő űrkutatási közvetítés',
+                'NASA és űrkutatási események közvetítése.'
+              )">
 
-            if(Math.random() < dt * 0.04 && trains.length < 6) {
-                spawnTrain();
-            }
+              <div class="thumbnail">🚀</div>
 
-            [switches.L, switches.R].forEach(sw => {
-                if(sw.switching) {
-                    sw.progress += dt / 1.5; 
-                    if(sw.progress >= 1) {
-                        sw.switching = false;
-                        sw.current = sw.target;
-                    }
-                }
-            });
+              <div>
+                <h4>NASA Live</h4>
+                <span>NASA • LIVE</span>
+              </div>
 
-            let uiNeedsUpdate = false;
-            for(let i = trains.length-1; i>=0; i--) {
-                let t = trains[i];
-                let headPos = getTrainPos(t, 0);
-                let canMove = true;
-                
-                if (headPos.segIndex === 0) {
-                    t.state = 'entering';
-                    let distToSwitch = paths.L_entry[paths.L_entry.length-1].dist - t.dist;
-                    if(t.origin === 'R') distToSwitch = paths.R_entry[paths.R_entry.length-1].dist - t.dist;
+            </div>
 
-                    if (distToSwitch < 45) {
-                        let sw = t.origin === 'L' ? switches.L : switches.R;
-                        if (sw.switching) {
-                            canMove = false;
-                        } else {
-                            t.platform = sw.current;
-                        }
-                    }
-                } else if (headPos.segIndex === 1) {
-                    t.state = 'to_plat';
-                } else if (headPos.segIndex === 2) {
-                    let platPath = platformPaths[t.platform];
-                    let distInPlat = t.dist - paths.L_entry[paths.L_entry.length-1].dist - paths.L_to_P[t.platform][paths.L_to_P[t.platform].length-1].dist;
-                    if(t.origin === 'R') distInPlat = t.dist - paths.R_entry[paths.R_entry.length-1].dist - paths.P_to_R[t.platform][paths.P_to_R[t.platform].length-1].dist;
 
-                    let platLen = platPath[platPath.length-1].dist;
-                    
-                    if (distInPlat >= platLen / 2 && t.state !== 'waiting' && t.state !== 'exiting') {
-                        t.state = 'waiting';
-                        canMove = false;
-                        uiNeedsUpdate = true;
-                    }
+            <div
+              class="video-item"
+              onclick="changeVideo(
+                '86YLFOog4GM',
+                'Föld a világűrből',
+                'Látványos felvételek a Földről és az űrből.'
+              )">
 
-                    if (t.state === 'waiting') {
-                        canMove = false;
-                        if (t.loaded) {
-                            t.waitTimer += gameSecs;
-                            if (t.waitTimer >= t.waitTime) {
-                                t.state = 'to_exit';
-                                uiNeedsUpdate = true;
-                            }
-                        }
-                    }
+              <div class="thumbnail">🌍</div>
 
-                    if (t.state === 'to_exit' || t.state === 'exiting') {
-                        let distToExit = platLen - distInPlat;
-                        if (distToExit < 45) {
-                            let exitSw = t.origin === 'L' ? switches.R : switches.L;
-                            if (exitSw.switching || exitSw.current !== t.platform) {
-                                canMove = false;
-                            } else {
-                                t.state = 'exiting';
-                            }
-                        }
-                    }
-                } else if (headPos.segIndex > 2) {
-                    t.state = 'exiting';
-                }
+              <div>
+                <h4>Föld a világűrből</h4>
+                <span>EARTH • SPACE</span>
+              </div>
 
-                for(let j=0; j<trains.length; j++) {
-                    if(i === j) continue;
-                    let sameTrack = false;
-                    if(t.state === 'entering' && trains[j].state === 'entering' && t.origin === trains[j].origin) sameTrack = true;
-                    if(t.platform !== null && t.platform === trains[j].platform) sameTrack = true;
-                    if(t.state === 'exiting' && trains[j].state === 'exiting' && t.origin === trains[j].origin) sameTrack = true;
-                    
-                    if (sameTrack && trains[j].dist > t.dist && trains[j].dist - t.dist < 180) {
-                        canMove = false;
-                    }
-                }
+            </div>
 
-                if (canMove) {
-                    t.speed = Math.min(t.speed + 100*dt, t.maxSpeed);
-                } else {
-                    t.speed = Math.max(t.speed - 250*dt, 0);
-                }
 
-                t.dist += t.speed * dt;
+            <div
+              class="video-item"
+              onclick="changeVideo(
+                '7nT7JGZMbtM',
+                'A Naprendszer felfedezése',
+                'Ismeretterjesztő űrkutatási tartalom.'
+              )">
 
-                if (t.dist > headPos.maxDist + 300) {
-                    trains.splice(i, 1);
-                    uiNeedsUpdate = true;
-                }
-            }
+              <div class="thumbnail">🪐</div>
 
-            if(uiNeedsUpdate) renderUI();
-        }
+              <div>
+                <h4>A Naprendszer felfedezése</h4>
+                <span>SOLAR SYSTEM</span>
+              </div>
 
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            </div>
 
-            ctx.fillStyle = '#ecf0f1';
-            ctx.font = '28px "Segoe UI", sans-serif';
-            ctx.textAlign = 'left';
-            ctx.fillText('Répce', 20, MAIN_Y - 40);
-            ctx.textAlign = 'right';
-            ctx.fillText('Napraforgó', canvas.width - 20, MAIN_Y - 40);
+          </div>
 
-            ctx.strokeStyle = '#95a5a6';
-            ctx.lineWidth = 6;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            
-            const drawPath = (p) => {
-                ctx.beginPath();
-                ctx.moveTo(p[0].x, p[0].y);
-                for(let i=1; i<p.length; i++) ctx.lineTo(p[i].x, p[i].y);
-                ctx.stroke();
-            };
+        </aside>
 
-            drawPath(paths.L_entry);
-            drawPath(paths.R_entry);
-            for(let i=0; i<3; i++) {
-                ctx.strokeStyle = '#7f8c8d';
-                drawPath(platformPaths[i]);
-                
-                ctx.strokeStyle = (switches.L.current === i) ? '#bdc3c7' : '#34495e';
-                drawPath(paths.L_to_P[i]);
-                ctx.strokeStyle = (switches.R.current === i) ? '#bdc3c7' : '#34495e';
-                drawPath(paths.P_to_R[i]);
-                
-                ctx.fillStyle = '#2c3e50';
-                ctx.fillRect(PLAT_L_X + 20, PLATFORMS_Y[i] + 15, PLAT_R_X - PLAT_L_X - 40, 15);
-                ctx.fillRect(PLAT_L_X + 20, PLATFORMS_Y[i] - 30, PLAT_R_X - PLAT_L_X - 40, 15);
-            }
+      </div>
 
-            const drawSwitch = (sw) => {
-                ctx.fillStyle = sw.switching ? '#f39c12' : '#27ae60';
-                ctx.beginPath();
-                ctx.arc(sw.x, sw.y, 14, 0, Math.PI*2);
-                ctx.fill();
-                
-                ctx.strokeStyle = '#2c3e50';
-                ctx.lineWidth = 3;
-                ctx.stroke();
-                
-                if(sw.switching) {
-                    ctx.strokeStyle = '#e74c3c';
-                    ctx.lineWidth = 5;
-                    ctx.beginPath();
-                    ctx.arc(sw.x, sw.y, 22, -Math.PI/2, -Math.PI/2 + (Math.PI*2 * sw.progress));
-                    ctx.stroke();
-                }
-            };
-            drawSwitch(switches.L);
-            drawSwitch(switches.R);
+    </div>
+  </section>
 
-            for(let t of trains) {
-                for(let c=0; c<t.cars; c++) {
-                    let offset = c * 28;
-                    let pos = getTrainPos(t, offset);
-                    if(pos.x < -100 || pos.x > canvas.width + 100) continue;
 
-                    ctx.save();
-                    ctx.translate(pos.x, pos.y);
-                    ctx.rotate(pos.angle);
-                    
-                    ctx.fillStyle = c === 0 ? (t.type==='passenger'?'#2980b9':'#d35400') : t.color;
-                    ctx.fillRect(-12, -9, 24, 18);
-                    ctx.strokeStyle = '#111';
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(-12, -9, 24, 18);
-                    
-                    if(c > 0) {
-                        ctx.fillStyle = '#111';
-                        ctx.fillRect(12, -2, 4, 4);
-                    }
+  <!-- KÜLDETÉSEK -->
 
-                    if(c === 0) {
-                        ctx.fillStyle = '#fff9c4';
-                        ctx.fillRect(8, -7, 4, 4);
-                        ctx.fillRect(8, 3, 4, 4);
-                    } else if (t.type === 'passenger') {
-                        ctx.fillStyle = '#81ecec';
-                        ctx.fillRect(-8, -6, 5, 12);
-                        ctx.fillRect(1, -6, 5, 12);
-                    }
-                    
-                    ctx.restore();
-                }
-            }
-        }
+  <section id="kuldetesek">
+    <div class="container">
 
-        function renderUI() {
-            uiList.innerHTML = '';
-            if(trains.length === 0) {
-                uiList.innerHTML = '<p>Nincs aktiv vonat a halozaton.</p>';
-                return;
-            }
-            for(let t of trains) {
-                let typeName = t.type === 'passenger' ? 'Szemelyvonat' : 'Tehervonat';
-                let dirName = t.origin === 'L' ? 'Répce -> Napraforgó' : 'Napraforgó -> Répce';
-                
-                let status = 'Kozledik';
-                if(t.state === 'waiting') {
-                    if(!t.loaded) status = 'Rakodasra var';
-                    else status = `Varakozik (${Math.ceil((t.waitTime - t.waitTimer)/60)} perc)`;
-                } else if (t.state === 'to_exit' || t.state === 'exiting') {
-                    status = 'Tavozik';
-                } else if (t.state === 'entering' || t.state === 'to_plat') {
-                    status = 'Erkezik';
-                }
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">Űrkutatási radar</h2>
+          <p class="section-subtitle">
+            Néhány fontos aktív vagy közelgő program
+          </p>
+        </div>
+      </div>
 
-                let card = document.createElement('div');
-                card.className = `train-card ${t.type}`;
-                card.innerHTML = `
-                    <strong>Vonat #${t.id} - ${typeName}</strong><br>
-                    <small>${dirName}</small><br>
-                    Allapot: <strong>${status}</strong>
-                `;
-                
-                if(t.type === 'freight' && t.state === 'waiting' && !t.loaded) {
-                    let btn = document.createElement('button');
-                    btn.className = 'btn';
-                    btn.innerText = 'Rakodas inditasa';
-                    btn.onclick = () => loadFreight(t.id);
-                    card.appendChild(btn);
-                }
-                
-                uiList.appendChild(card);
-            }
-        }
+      <div class="dashboard">
 
-        function loop() {
-            let now = performance.now();
-            let dt = (now - lastTime) / 1000;
-            lastTime = now;
-            if(dt > 0.1) dt = 0.1; 
+        <div class="stat">
+          <small>🛰️ Küldetés</small>
+          <strong>JUICE</strong>
+          <span>Jupiter</span>
+        </div>
 
-            update(dt);
-            draw();
-            requestAnimationFrame(loop);
-        }
-        
-        spawnTrain();
-        loop();
-        
-        setInterval(() => {
-            renderUI();
-        }, 1000);
-    </script>
+        <div class="stat">
+          <small>🌑 Küldetés</small>
+          <strong>BepiColombo</strong>
+          <span>Merkúr</span>
+        </div>
+
+        <div class="stat">
+          <small>🔭 Űrtávcső</small>
+          <strong>Roman</strong>
+          <span>Mélyűr</span>
+        </div>
+
+        <div class="stat">
+          <small>👨‍🚀 Állomás</small>
+          <strong>ISS</strong>
+          <span>Alacsony Föld körüli pálya</span>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+
+<footer>
+  <div class="container">
+    ŰrFigyelő • NASA / ESA alapú bemutatófelület
+    <br><br>
+    A hírek és videók eredeti forrásaihoz tartozó jogok
+    az adott szolgáltatóknál maradnak.
+  </div>
+</footer>
+
+
+<script>
+
+  function changeVideo(id, title, description) {
+
+    const iframe = document.getElementById("mainVideo");
+
+    iframe.src =
+      "https://www.youtube.com/embed/" +
+      id +
+      "?autoplay=1";
+
+    document.getElementById("videoTitle").textContent = title;
+
+    document.getElementById("videoDescription").textContent =
+      description;
+
+    document.querySelectorAll(".video-item").forEach(item => {
+      item.classList.remove("selected");
+    });
+
+    event.currentTarget.classList.add("selected");
+  }
+
+
+  // Egyszerű dátum/frissítés jelző
+
+  console.log(
+    "ŰrFigyelő betöltve — " +
+    new Date().toLocaleString("hu-HU")
+  );
+
+</script>
+
 </body>
 </html>
