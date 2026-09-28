@@ -1,198 +1,522 @@
 <!DOCTYPE html>
 <html lang="hu">
 <head>
-<meta charset="UTF-8">
-<style>
-    body { background: #050505; color: #0f0; font-family: 'Courier New', monospace; margin: 0; display: flex; height: 100vh; overflow: hidden; user-select: none; }
-    #canvas-container { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; background: #000; border-right: 2px solid #333; }
-    canvas { background: #000; box-shadow: inset 0 0 20px rgba(0,255,0,0.05); }
-    #ui { width: 350px; background: #111; padding: 20px; box-sizing: border-box; overflow-y: auto; color: #0a0; }
-    h1 { font-size: 1.2em; color: #0f0; border-bottom: 1px solid #0f0; padding-bottom: 5px; text-transform: uppercase; margin-top: 0; }
-    .train { border: 1px solid #333; padding: 10px; margin-bottom: 10px; background: #050505; }
-    .train.freight { border-color: #a50; color: #fd0; }
-    .train.passenger { border-color: #05a; color: #0df; }
-    .btn { background: #222; border: 1px solid #0f0; color: #0f0; padding: 5px 10px; cursor: pointer; width: 100%; margin-top: 5px; font-family: inherit; font-weight: bold;}
-    .btn:hover { background: #0f0; color: #000; }
-    #time { font-size: 2em; text-align: center; margin-bottom: 20px; border: 1px solid #0f0; padding: 10px; background: #050505; }
-</style>
+    <meta charset="UTF-8">
+    <title>Forgalmista Jatek</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: #1e1e24; 
+            color: #f5f6fa; 
+            margin: 0; 
+            display: flex; 
+            height: 100vh; 
+            overflow: hidden; 
+        }
+        #game-container { 
+            position: relative; 
+            flex: 1; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            background: #2b2b36; 
+        }
+        canvas { 
+            background: #34495e; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6); 
+            border-radius: 12px; 
+            border: 2px solid #555;
+        }
+        #ui-panel { 
+            width: 380px; 
+            background: #2c3e50; 
+            padding: 25px; 
+            box-sizing: border-box; 
+            overflow-y: auto; 
+            border-left: 4px solid #1abc9c; 
+            display: flex;
+            flex-direction: column;
+        }
+        h1, h2 { margin-top: 0; color: #1abc9c; }
+        .train-card { 
+            background: #34495e; 
+            padding: 15px; 
+            margin-bottom: 12px; 
+            border-radius: 8px; 
+            border-left: 6px solid #7f8c8d; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+        .train-card.passenger { border-color: #3498db; }
+        .train-card.freight { border-color: #e67e22; }
+        .btn { 
+            background: #e67e22; 
+            color: white; 
+            border: none; 
+            padding: 10px 15px; 
+            cursor: pointer; 
+            border-radius: 6px; 
+            margin-top: 10px; 
+            font-weight: bold;
+            width: 100%;
+            transition: background 0.2s;
+        }
+        .btn:hover { background: #d35400; }
+        #clock { 
+            font-size: 3em; 
+            text-align: center; 
+            margin-bottom: 25px; 
+            font-weight: bold; 
+            font-family: 'Courier New', Courier, monospace; 
+            color: #f1c40f;
+            background: #222;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+        }
+        .controls-info {
+            background: rgba(0,0,0,0.2);
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            margin-bottom: 20px;
+            color: #bdc3c7;
+        }
+    </style>
 </head>
 <body>
-<div id="canvas-container"><canvas id="c" width="1100" height="600"></canvas></div>
-<div id="ui">
-    <div id="time">08:00</div>
-    <h1>Irányítópult</h1>
-    <div id="list"></div>
-</div>
-<script>
-    const c = document.getElementById('c'), ctx = c.getContext('2d'), list = document.getElementById('list'), timeEl = document.getElementById('time');
-    let last = performance.now(), gameTime = new Date(); gameTime.setHours(8,0,0,0);
-    const P = [200, 300, 400], MY = 300, SL = 250, SR = 850;
-    let sw = { L: {x: SL, y: MY, t: 1, c: 1, p: 0}, R: {x: SR, y: MY, t: 1, c: 1, p: 0} };
-    let trs = [], id = 1;
+    <div id="game-container">
+        <canvas id="canvas" width="1100" height="600"></canvas>
+    </div>
+    <div id="ui-panel">
+        <div id="clock">08:00</div>
+        <div class="controls-info">
+            <strong>Irányítás:</strong><br>
+            Kattints a kör alakú váltókra a vágányok közötti átkapcsoláshoz. A váltás időbe telik.<br>
+            A tehervonatokat manuálisan kell rakodni a peronon.
+        </div>
+        <h2>Menetrend & Állapot</h2>
+        <div id="trains-list"></div>
+    </div>
 
-    function mkP(pts) {
-        let p = [], d = 0;
-        for(let i=0; i<pts.length; i++) {
-            if(i>0) {
-                let dx = pts[i].x-pts[i-1].x, dy = pts[i].y-pts[i-1].y;
-                let len = Math.sqrt(dx*dx+dy*dy);
-                d += len;
-                p.push({x: pts[i].x, y: pts[i].y, d: d, a: Math.atan2(dy, dx)});
-            } else p.push({x: pts[i].x, y: pts[i].y, d: 0, a: 0});
-        }
-        return p;
-    }
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const uiList = document.getElementById('trains-list');
+        const clockEl = document.getElementById('clock');
 
-    const L_ent = mkP([{x:-50, y:MY}, {x:SL, y:MY}]);
-    const R_ent = mkP([{x:1150, y:MY}, {x:SR, y:MY}]);
-    const pths = [[],[],[]];
-    for(let i=0; i<3; i++) {
-        let dx = (P[i] === MY) ? 0 : 100;
-        pths[i] = mkP([
-            {x: SL, y: MY}, 
-            {x: SL+dx, y: P[i]}, 
-            {x: SR-dx, y: P[i]}, 
-            {x: SR, y: MY}
-        ]);
-    }
+        let lastTime = performance.now();
+        let gameTime = new Date();
+        gameTime.setHours(8, 0, 0, 0);
 
-    function spwn() {
-        let typ = Math.random()>0.5 ? 'passenger' : 'freight', or = Math.random()>0.5 ? 'L' : 'R';
-        trs.push({ id: id++, typ, or, s: 'ent', plt: null, d: 0, v: 0, mv: 80, wt: (Math.floor(Math.random()*10)+5)*60, wtr: 0, ld: typ==='passenger', clr: typ==='passenger'?'#0df':'#fd0' });
-        rend();
-    }
+        const PLATFORMS_Y = [180, 300, 420];
+        const MAIN_Y = 300;
+        const SWITCH_L_X = 250, SWITCH_R_X = 850;
+        const PLAT_L_X = 400, PLAT_R_X = 700;
 
-    c.addEventListener('click', e => {
-        let r = c.getBoundingClientRect(), x = e.clientX-r.left, y = e.clientY-r.top;
-        [sw.L, sw.R].forEach(s => {
-            if(Math.hypot(x-s.x, y-s.y) < 30 && s.p === 0) { s.t = (s.t+1)%3; s.p = 1; }
-        });
-    });
-
-    function getPos(t, off) {
-        let p = [];
-        if(t.or==='L') {
-            p = [{x:-50, y:MY}, {x:SL, y:MY}];
-            if(t.plt!==null) {
-                let m = pths[t.plt];
-                p.push({x:m[1].x, y:m[1].y}, {x:m[2].x, y:m[2].y}, {x:m[3].x, y:m[3].y}, {x:1150, y:MY});
-            }
-        } else {
-            p = [{x:1150, y:MY}, {x:SR, y:MY}];
-            if(t.plt!==null) {
-                let m = pths[t.plt];
-                p.push({x:m[2].x, y:m[2].y}, {x:m[1].x, y:m[1].y}, {x:m[0].x, y:m[0].y}, {x:-50, y:MY});
-            }
-        }
-        let fl = mkP(p), dist = Math.max(0, t.d - off), pt = fl[0], idx=0;
-        for(let i=0; i<fl.length; i++) { if(fl[i].d >= dist) { pt = fl[i]; break; } idx=i; }
-        return {x: pt.x, y: pt.y, a: pt.a, idx, md: fl[fl.length-1].d};
-    }
-
-    function ldF(id) { let t = trs.find(x=>x.id===id); if(t && t.s==='wt') { t.ld = true; rend(); } }
-
-    function upd(dt) {
-        let gs = dt*4; gameTime.setSeconds(gameTime.getSeconds()+gs);
-        timeEl.innerText = gameTime.toLocaleTimeString('hu-HU', {hour:'2-digit', minute:'2-digit'});
-        if(Math.random()<dt*0.03 && trs.length<5) spwn();
-
-        [sw.L, sw.R].forEach(s => {
-            if(s.p>0) {
-                s.p -= dt/1.5;
-                if(s.p<=0) { s.p = 0; s.c = s.t; }
-            }
-        });
-
-        let ur = false;
-        for(let i=trs.length-1; i>=0; i--) {
-            let t = trs[i], pos = getPos(t, 0), go = true;
-            if(t.s === 'ent' && t.d > L_ent[1].d - 50) {
-                let s = t.or==='L'?sw.L:sw.R;
-                if(s.p>0) go = false; else t.plt = s.c;
-            }
-            if(t.plt !== null) {
-                let m = pths[t.plt], pd = t.or==='L' ? m[2].d - m[0].d : m[2].d; 
-                let inP = t.d - L_ent[1].d;
-                if(inP > pd/2 && t.s !== 'wt' && t.s !== 'ex') { t.s = 'wt'; go = false; ur = true; }
-                if(t.s === 'wt') { go = false; if(t.ld) { t.wtr += gs; if(t.wtr >= t.wt) { t.s = 'ex'; ur = true; } } }
-                if(t.s === 'ex') {
-                    let s = t.or==='L'?sw.R:sw.L;
-                    if(m[3].d - inP < 50) { if(s.p>0 || s.c!==t.plt) go = false; }
-                }
-            }
-            for(let j=0; j<trs.length; j++) {
-                if(i===j) continue;
-                let ot = trs[j];
-                if((t.s==='ent'&&ot.s==='ent'&&t.or===ot.or) || (t.plt!==null&&t.plt===ot.plt) || (t.s==='ex'&&ot.s==='ex'&&t.or===ot.or)) {
-                    if(ot.d > t.d && ot.d - t.d < 150) go = false;
-                }
-            }
-            t.v = go ? Math.min(t.v+100*dt, t.mv) : Math.max(t.v-200*dt, 0);
-            t.d += t.v*dt;
-            if(t.d > pos.md + 200) { trs.splice(i,1); ur = true; }
-        }
-        if(ur) rend();
-    }
-
-    function drw() {
-        ctx.clearRect(0,0,c.width,c.height);
-        ctx.lineWidth = 4; ctx.lineCap = 'square'; ctx.lineJoin = 'miter';
-
-        const dp = (pts, col) => { ctx.strokeStyle=col; ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x, pts[i].y); ctx.stroke(); };
-
-        dp(L_ent, '#333'); dp(R_ent, '#333');
-        for(let i=0; i<3; i++) {
-            let pts = pths[i];
-            dp([pts[1], pts[2]], '#333');
-            dp([pts[0], pts[1]], sw.L.c===i ? '#0f0' : '#333');
-            dp([pts[2], pts[3]], sw.R.c===i ? '#0f0' : '#333');
-            
-            ctx.fillStyle = '#0f0'; ctx.font = '14px monospace'; ctx.textAlign='center';
-            ctx.fillText('V'+(i+1), pts[1].x+40, pts[1].y - 15);
-        }
-
-        const ds = (s) => {
-            ctx.fillStyle = s.p>0 ? '#f00' : '#0f0';
-            ctx.fillRect(s.x-12, s.y-12, 24, 24);
-            ctx.fillStyle = '#000'; ctx.font = '14px monospace'; ctx.textAlign='center';
-            ctx.fillText(s.c+1, s.x, s.y+4);
+        let switches = {
+            L: { x: SWITCH_L_X, y: MAIN_Y, current: 1, target: 1, switching: false, progress: 0 },
+            R: { x: SWITCH_R_X, y: MAIN_Y, current: 1, target: 1, switching: false, progress: 0 }
         };
-        ds(sw.L); ds(sw.R);
 
-        ctx.fillStyle = '#333'; ctx.font = 'bold 20px monospace';
-        ctx.textAlign = 'left'; ctx.fillText('RÉPCE', 20, 280); 
-        ctx.textAlign = 'right'; ctx.fillText('NAPRAFORGÓ', 1080, 280);
+        let trains = [];
+        let nextTrainId = 1;
 
-        for(let t of trs) {
-            for(let k=0; k<(t.typ==='passenger'?4:6); k++) {
-                let pos = getPos(t, k*30);
-                if(pos.x<0 || pos.x>c.width) continue;
-                ctx.save(); ctx.translate(pos.x, pos.y); ctx.rotate(pos.a);
-                ctx.fillStyle = t.clr; ctx.fillRect(-12, -8, 24, 16);
-                ctx.fillStyle = '#000'; ctx.fillRect(12, -2, 4, 4);
-                ctx.restore();
+        function generatePath(startX, startY, endX, endY, cpX, cpY) {
+            let path = [];
+            let steps = 250;
+            for(let i=0; i<=steps; i++) {
+                let t = i / steps;
+                let x, y;
+                if (cpX != null) {
+                    x = (1-t)*(1-t)*startX + 2*(1-t)*t*cpX + t*t*endX;
+                    y = (1-t)*(1-t)*startY + 2*(1-t)*t*cpY + t*t*endY;
+                } else {
+                    x = startX + (endX - startX)*t;
+                    y = startY + (endY - startY)*t;
+                }
+                if (path.length > 0) {
+                    let last = path[path.length-1];
+                    let dx = x - last.x, dy = y - last.y;
+                    let dist = Math.sqrt(dx*dx + dy*dy);
+                    path.push({x, y, dist: path[path.length-1].dist + dist, angle: Math.atan2(dy, dx)});
+                } else {
+                    path.push({x, y, dist: 0, angle: 0});
+                }
+            }
+            return path;
+        }
+
+        const paths = {
+            L_entry: generatePath(-50, MAIN_Y, SWITCH_L_X, MAIN_Y),
+            R_entry: generatePath(1150, MAIN_Y, SWITCH_R_X, MAIN_Y),
+            L_to_P: [],
+            P_to_R: []
+        };
+
+        const platformPaths = [];
+        for(let i=0; i<3; i++) {
+            paths.L_to_P.push(generatePath(SWITCH_L_X, MAIN_Y, PLAT_L_X, PLATFORMS_Y[i], (SWITCH_L_X+PLAT_L_X)/2, MAIN_Y));
+            paths.P_to_R.push(generatePath(PLAT_R_X, PLATFORMS_Y[i], SWITCH_R_X, MAIN_Y, (PLAT_R_X+SWITCH_R_X)/2, PLATFORMS_Y[i]));
+            platformPaths.push(generatePath(PLAT_L_X, PLATFORMS_Y[i], PLAT_R_X, PLATFORMS_Y[i]));
+        }
+
+        function spawnTrain() {
+            let type = Math.random() > 0.4 ? 'passenger' : 'freight';
+            let origin = Math.random() > 0.5 ? 'L' : 'R';
+            
+            let waitTimeMins = Math.floor(Math.random() * 16) + 5; 
+            if(Math.random() > 0.75) waitTimeMins = 20;
+
+            trains.push({
+                id: nextTrainId++,
+                type: type,
+                origin: origin,
+                state: 'entering', 
+                platform: null,
+                dist: 0,
+                speed: 0,
+                maxSpeed: 60, 
+                waitTime: waitTimeMins * 60,
+                waitTimer: 0,
+                loaded: type === 'passenger',
+                cars: type === 'passenger' ? 5 : 8,
+                color: type === 'passenger' ? '#3498db' : '#e67e22'
+            });
+            renderUI();
+        }
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            [switches.L, switches.R].forEach(sw => {
+                let dx = x - sw.x, dy = y - sw.y;
+                if(Math.sqrt(dx*dx + dy*dy) < 35 && !sw.switching) {
+                    sw.target = (sw.target + 1) % 3;
+                    if(sw.target !== sw.current) {
+                        sw.switching = true;
+                        sw.progress = 0;
+                    }
+                }
+            });
+        });
+
+        function getTrainPos(train, offset) {
+            let pathList = [];
+            if(train.origin === 'L') {
+                pathList = [
+                    paths.L_entry,
+                    train.platform != null ? paths.L_to_P[train.platform] : paths.L_entry, 
+                    train.platform != null ? platformPaths[train.platform] : platformPaths[1],
+                    train.platform != null ? paths.P_to_R[train.platform] : paths.P_to_R[1],
+                    generatePath(SWITCH_R_X, MAIN_Y, 1150, MAIN_Y)
+                ];
+            } else {
+                pathList = [
+                    paths.R_entry, 
+                    train.platform != null ? [...paths.P_to_R[train.platform]].reverse() : paths.R_entry, 
+                    train.platform != null ? [...platformPaths[train.platform]].reverse() : platformPaths[1],
+                    train.platform != null ? [...paths.L_to_P[train.platform]].reverse() : paths.L_to_P[1],
+                    generatePath(SWITCH_L_X, MAIN_Y, -50, MAIN_Y)
+                ];
+            }
+
+            let d = train.dist - offset;
+            if(d < 0) d = 0;
+
+            let segmentOffsets = [0];
+            for(let i=0; i<pathList.length; i++){
+                segmentOffsets.push(segmentOffsets[i] + pathList[i][pathList[i].length-1].dist);
+            }
+
+            let currentSeg = 0;
+            while(currentSeg < pathList.length && d > segmentOffsets[currentSeg+1]) {
+                currentSeg++;
+            }
+            if(currentSeg >= pathList.length) currentSeg = pathList.length - 1;
+
+            let distInSeg = d - segmentOffsets[currentSeg];
+            let segPath = pathList[currentSeg];
+            
+            let pt = segPath[0];
+            for(let i=0; i<segPath.length; i++) {
+                if(segPath[i].dist >= distInSeg) {
+                    pt = segPath[i];
+                    break;
+                }
+            }
+            return {x: pt.x, y: pt.y, angle: pt.angle, segIndex: currentSeg, maxDist: segmentOffsets[segmentOffsets.length-1]};
+        }
+
+        function loadFreight(id) {
+            let t = trains.find(tr => tr.id === id);
+            if(t && t.type === 'freight' && t.state === 'waiting') {
+                t.loaded = true;
+                renderUI();
             }
         }
-    }
 
-    function rend() {
-        list.innerHTML = trs.length ? '' : '<div class="train">NINCS FORGALOM</div>';
-        trs.forEach(t => {
-            let st = t.s==='wt' ? (t.ld ? 'VÁRAKOZIK' : 'RAKODÁSRA VÁR') : (t.s==='ex'?'TÁVOZIK':'ÉRKEZIK');
-            let d = document.createElement('div'); d.className = `train ${t.typ}`;
-            d.innerHTML = `VONAT #${t.id} - ${t.typ==='passenger'?'SZEMÉLY':'TEHER'}<br>IRÁNY: ${t.or==='L'?'R->N':'N->R'}<br>STÁTUSZ: ${st}`;
-            if(t.typ==='freight' && t.s==='wt' && !t.ld) {
-                let b = document.createElement('button'); b.className='btn'; b.innerText='RAKODÁS'; b.onclick=()=>ldF(t.id); d.appendChild(b);
+        function update(dt) {
+            let gameSecs = dt * 4; 
+            gameTime.setSeconds(gameTime.getSeconds() + gameSecs);
+            clockEl.textContent = gameTime.toLocaleTimeString('hu-HU', {hour: '2-digit', minute:'2-digit'});
+
+            if(Math.random() < dt * 0.04 && trains.length < 6) {
+                spawnTrain();
             }
-            list.appendChild(d);
-        });
-    }
 
-    function lp() {
-        let nw = performance.now(), dt = Math.min((nw-last)/1000, 0.1); last = nw;
-        upd(dt); drw(); requestAnimationFrame(lp);
-    }
-    spwn(); lp(); setInterval(rend, 1000);
-</script>
+            [switches.L, switches.R].forEach(sw => {
+                if(sw.switching) {
+                    sw.progress += dt / 1.5; 
+                    if(sw.progress >= 1) {
+                        sw.switching = false;
+                        sw.current = sw.target;
+                    }
+                }
+            });
+
+            let uiNeedsUpdate = false;
+            for(let i = trains.length-1; i>=0; i--) {
+                let t = trains[i];
+                let headPos = getTrainPos(t, 0);
+                let canMove = true;
+                
+                if (headPos.segIndex === 0) {
+                    t.state = 'entering';
+                    let distToSwitch = paths.L_entry[paths.L_entry.length-1].dist - t.dist;
+                    if(t.origin === 'R') distToSwitch = paths.R_entry[paths.R_entry.length-1].dist - t.dist;
+
+                    if (distToSwitch < 45) {
+                        let sw = t.origin === 'L' ? switches.L : switches.R;
+                        if (sw.switching) {
+                            canMove = false;
+                        } else {
+                            t.platform = sw.current;
+                        }
+                    }
+                } else if (headPos.segIndex === 1) {
+                    t.state = 'to_plat';
+                } else if (headPos.segIndex === 2) {
+                    let platPath = platformPaths[t.platform];
+                    let distInPlat = t.dist - paths.L_entry[paths.L_entry.length-1].dist - paths.L_to_P[t.platform][paths.L_to_P[t.platform].length-1].dist;
+                    if(t.origin === 'R') distInPlat = t.dist - paths.R_entry[paths.R_entry.length-1].dist - paths.P_to_R[t.platform][paths.P_to_R[t.platform].length-1].dist;
+
+                    let platLen = platPath[platPath.length-1].dist;
+                    
+                    if (distInPlat >= platLen / 2 && t.state !== 'waiting' && t.state !== 'exiting') {
+                        t.state = 'waiting';
+                        canMove = false;
+                        uiNeedsUpdate = true;
+                    }
+
+                    if (t.state === 'waiting') {
+                        canMove = false;
+                        if (t.loaded) {
+                            t.waitTimer += gameSecs;
+                            if (t.waitTimer >= t.waitTime) {
+                                t.state = 'to_exit';
+                                uiNeedsUpdate = true;
+                            }
+                        }
+                    }
+
+                    if (t.state === 'to_exit' || t.state === 'exiting') {
+                        let distToExit = platLen - distInPlat;
+                        if (distToExit < 45) {
+                            let exitSw = t.origin === 'L' ? switches.R : switches.L;
+                            if (exitSw.switching || exitSw.current !== t.platform) {
+                                canMove = false;
+                            } else {
+                                t.state = 'exiting';
+                            }
+                        }
+                    }
+                } else if (headPos.segIndex > 2) {
+                    t.state = 'exiting';
+                }
+
+                for(let j=0; j<trains.length; j++) {
+                    if(i === j) continue;
+                    let sameTrack = false;
+                    if(t.state === 'entering' && trains[j].state === 'entering' && t.origin === trains[j].origin) sameTrack = true;
+                    if(t.platform !== null && t.platform === trains[j].platform) sameTrack = true;
+                    if(t.state === 'exiting' && trains[j].state === 'exiting' && t.origin === trains[j].origin) sameTrack = true;
+                    
+                    if (sameTrack && trains[j].dist > t.dist && trains[j].dist - t.dist < 180) {
+                        canMove = false;
+                    }
+                }
+
+                if (canMove) {
+                    t.speed = Math.min(t.speed + 100*dt, t.maxSpeed);
+                } else {
+                    t.speed = Math.max(t.speed - 250*dt, 0);
+                }
+
+                t.dist += t.speed * dt;
+
+                if (t.dist > headPos.maxDist + 300) {
+                    trains.splice(i, 1);
+                    uiNeedsUpdate = true;
+                }
+            }
+
+            if(uiNeedsUpdate) renderUI();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#ecf0f1';
+            ctx.font = '28px "Segoe UI", sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('Répce', 20, MAIN_Y - 40);
+            ctx.textAlign = 'right';
+            ctx.fillText('Napraforgó', canvas.width - 20, MAIN_Y - 40);
+
+            ctx.strokeStyle = '#95a5a6';
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            const drawPath = (p) => {
+                ctx.beginPath();
+                ctx.moveTo(p[0].x, p[0].y);
+                for(let i=1; i<p.length; i++) ctx.lineTo(p[i].x, p[i].y);
+                ctx.stroke();
+            };
+
+            drawPath(paths.L_entry);
+            drawPath(paths.R_entry);
+            for(let i=0; i<3; i++) {
+                ctx.strokeStyle = '#7f8c8d';
+                drawPath(platformPaths[i]);
+                
+                ctx.strokeStyle = (switches.L.current === i) ? '#bdc3c7' : '#34495e';
+                drawPath(paths.L_to_P[i]);
+                ctx.strokeStyle = (switches.R.current === i) ? '#bdc3c7' : '#34495e';
+                drawPath(paths.P_to_R[i]);
+                
+                ctx.fillStyle = '#2c3e50';
+                ctx.fillRect(PLAT_L_X + 20, PLATFORMS_Y[i] + 15, PLAT_R_X - PLAT_L_X - 40, 15);
+                ctx.fillRect(PLAT_L_X + 20, PLATFORMS_Y[i] - 30, PLAT_R_X - PLAT_L_X - 40, 15);
+            }
+
+            const drawSwitch = (sw) => {
+                ctx.fillStyle = sw.switching ? '#f39c12' : '#27ae60';
+                ctx.beginPath();
+                ctx.arc(sw.x, sw.y, 14, 0, Math.PI*2);
+                ctx.fill();
+                
+                ctx.strokeStyle = '#2c3e50';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                
+                if(sw.switching) {
+                    ctx.strokeStyle = '#e74c3c';
+                    ctx.lineWidth = 5;
+                    ctx.beginPath();
+                    ctx.arc(sw.x, sw.y, 22, -Math.PI/2, -Math.PI/2 + (Math.PI*2 * sw.progress));
+                    ctx.stroke();
+                }
+            };
+            drawSwitch(switches.L);
+            drawSwitch(switches.R);
+
+            for(let t of trains) {
+                for(let c=0; c<t.cars; c++) {
+                    let offset = c * 28;
+                    let pos = getTrainPos(t, offset);
+                    if(pos.x < -100 || pos.x > canvas.width + 100) continue;
+
+                    ctx.save();
+                    ctx.translate(pos.x, pos.y);
+                    ctx.rotate(pos.angle);
+                    
+                    ctx.fillStyle = c === 0 ? (t.type==='passenger'?'#2980b9':'#d35400') : t.color;
+                    ctx.fillRect(-12, -9, 24, 18);
+                    ctx.strokeStyle = '#111';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(-12, -9, 24, 18);
+                    
+                    if(c > 0) {
+                        ctx.fillStyle = '#111';
+                        ctx.fillRect(12, -2, 4, 4);
+                    }
+
+                    if(c === 0) {
+                        ctx.fillStyle = '#fff9c4';
+                        ctx.fillRect(8, -7, 4, 4);
+                        ctx.fillRect(8, 3, 4, 4);
+                    } else if (t.type === 'passenger') {
+                        ctx.fillStyle = '#81ecec';
+                        ctx.fillRect(-8, -6, 5, 12);
+                        ctx.fillRect(1, -6, 5, 12);
+                    }
+                    
+                    ctx.restore();
+                }
+            }
+        }
+
+        function renderUI() {
+            uiList.innerHTML = '';
+            if(trains.length === 0) {
+                uiList.innerHTML = '<p>Nincs aktiv vonat a halozaton.</p>';
+                return;
+            }
+            for(let t of trains) {
+                let typeName = t.type === 'passenger' ? 'Szemelyvonat' : 'Tehervonat';
+                let dirName = t.origin === 'L' ? 'Répce -> Napraforgó' : 'Napraforgó -> Répce';
+                
+                let status = 'Kozledik';
+                if(t.state === 'waiting') {
+                    if(!t.loaded) status = 'Rakodasra var';
+                    else status = `Varakozik (${Math.ceil((t.waitTime - t.waitTimer)/60)} perc)`;
+                } else if (t.state === 'to_exit' || t.state === 'exiting') {
+                    status = 'Tavozik';
+                } else if (t.state === 'entering' || t.state === 'to_plat') {
+                    status = 'Erkezik';
+                }
+
+                let card = document.createElement('div');
+                card.className = `train-card ${t.type}`;
+                card.innerHTML = `
+                    <strong>Vonat #${t.id} - ${typeName}</strong><br>
+                    <small>${dirName}</small><br>
+                    Allapot: <strong>${status}</strong>
+                `;
+                
+                if(t.type === 'freight' && t.state === 'waiting' && !t.loaded) {
+                    let btn = document.createElement('button');
+                    btn.className = 'btn';
+                    btn.innerText = 'Rakodas inditasa';
+                    btn.onclick = () => loadFreight(t.id);
+                    card.appendChild(btn);
+                }
+                
+                uiList.appendChild(card);
+            }
+        }
+
+        function loop() {
+            let now = performance.now();
+            let dt = (now - lastTime) / 1000;
+            lastTime = now;
+            if(dt > 0.1) dt = 0.1; 
+
+            update(dt);
+            draw();
+            requestAnimationFrame(loop);
+        }
+        
+        spawnTrain();
+        loop();
+        
+        setInterval(() => {
+            renderUI();
+        }, 1000);
+    </script>
 </body>
 </html>
